@@ -3,51 +3,68 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🎵 Rhythm Tiles 🎵</title>
+<title>🎵 Rhythm Tiles Ultimate 🎵</title>
 
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600&display=swap" rel="stylesheet">
 
 <style>
 body{
 margin:0;
-font-family:'Fredoka', sans-serif;
+font-family:'Fredoka',sans-serif;
 text-align:center;
-background: linear-gradient(135deg,#ff9a9e,#a18cd1,#fbc2eb);
-background-size:400% 400%;
-animation:bgMove 8s infinite alternate;
 color:white;
+background:linear-gradient(270deg,#ff6ec4,#7873f5,#00dbde,#fc00ff);
+background-size:600% 600%;
+animation:bg 10s infinite;
 }
-
-@keyframes bgMove{
+@keyframes bg{
 0%{background-position:0%}
 100%{background-position:100%}
 }
+
+h1{margin:10px;}
 
 #game{
 width:320px;
 height:520px;
 margin:20px auto;
-background:white;
+background:#fff;
 border-radius:20px;
 overflow:hidden;
 position:relative;
+touch-action:none;
 }
 
 .tile{
 width:80px;
 height:140px;
-background:linear-gradient(45deg,#ff6ec4,#7873f5);
 position:absolute;
-border-radius:10px;
+border-radius:12px;
+background:linear-gradient(45deg,#ff6ec4,#7873f5);
 }
 
-button{
-padding:10px 20px;
-font-size:18px;
+.effect{
+position:absolute;
+width:80px;
+height:140px;
+background:rgba(255,255,0,0.5);
+border-radius:12px;
+animation:pop 0.3s;
+}
+@keyframes pop{
+to{transform:scale(1.5);opacity:0}
+}
+
+#judge{
+font-size:28px;
+height:40px;
+}
+
+button,input{
+margin:5px;
+padding:8px;
 border:none;
-border-radius:20px;
-background:#ff6ec4;
-color:white;
+border-radius:10px;
 }
 
 </style>
@@ -56,88 +73,94 @@ color:white;
 <body>
 
 <h1>🎵 Rhythm Tiles 🎵</h1>
+
 <div id="score">Score: 0</div>
+<div id="highscore">HighScore: 0</div>
+<div id="judge"></div>
+
+<input type="file" id="file" accept="audio/*">
+<br>
 <button onclick="startGame()">START</button>
 
 <div id="game"></div>
 
-<audio id="music" src="music.mp3"></audio>
-
 <script>
 
 const game=document.getElementById("game")
-const music=document.getElementById("music")
 const scoreText=document.getElementById("score")
+const highscoreText=document.getElementById("highscore")
+const judgeText=document.getElementById("judge")
 
+let audio=new Audio()
 let tiles=[]
 let score=0
 let running=false
 let speed=3
 
-/* ビート（秒）※ここで譜面を決める */
-const beatMap=[
-1,1.5,2,2.5,3,3.5,
-4,4.5,5,5.5,6,
-7,7.5,8,8.5,9
-]
+let highscore=localStorage.getItem("hs")||0
+highscoreText.innerText="HighScore: "+highscore
 
-let beatIndex=0
+/* 🎧 音楽選択 */
+document.getElementById("file").onchange=e=>{
+let file=e.target.files[0]
+audio.src=URL.createObjectURL(file)
+}
 
-/* タイル生成 */
+/* 🎹 タイル生成 */
 function createTile(){
-
-const tile=document.createElement("div")
+let tile=document.createElement("div")
 tile.className="tile"
 
 let col=Math.floor(Math.random()*4)
-
 tile.style.left=(col*80)+"px"
 tile.style.top="-140px"
-tile.dataset.hit="false"
+tile.dataset.time=audio.currentTime
 
 game.appendChild(tile)
 tiles.push(tile)
-
 }
 
-/* 音楽同期 */
-function sync(){
+/* 🎵 安定版リズム生成（←ここが重要） */
+function autoBeat(){
 
 if(!running)return
 
-let t=music.currentTime
+let t = audio.currentTime
 
-if(beatIndex<beatMap.length && t>=beatMap[beatIndex]){
+if(!window.lastBeat) window.lastBeat = 0
+
+// 一定間隔でタイル出す（安定）
+if(t - window.lastBeat > 0.5){
 createTile()
-beatIndex++
+window.lastBeat = t
 }
 
-requestAnimationFrame(sync)
-
-}
-
-/* 動き */
-function update(){
-
-if(!running)return
-
-tiles.forEach(tile=>{
-
-let top=parseFloat(tile.style.top)
-top+=speed
-tile.style.top=top+"px"
-
-if(top>520 && tile.dataset.hit==="false"){
-gameOver()
-}
-
-})
-
-requestAnimationFrame(update)
+requestAnimationFrame(autoBeat)
 
 }
 
-/* タッチ */
+/* 🎯 判定 */
+function judge(tile){
+
+let diff=Math.abs(audio.currentTime - tile.dataset.time)
+
+if(diff<0.2) return "PERFECT"
+if(diff<0.4) return "GOOD"
+return "MISS"
+
+}
+
+/* 🌈 エフェクト */
+function effect(x,y){
+let e=document.createElement("div")
+e.className="effect"
+e.style.left=x+"px"
+e.style.top=y+"px"
+game.appendChild(e)
+setTimeout(()=>e.remove(),300)
+}
+
+/* 👆 入力 */
 game.addEventListener("touchstart",handle,{passive:false})
 game.addEventListener("mousedown",handle)
 
@@ -156,16 +179,20 @@ tiles.forEach(tile=>{
 
 let tRect=tile.getBoundingClientRect()
 
-let tx=tRect.left-rect.left
-let ty=tRect.top-rect.top
-
-if(x>tx && x<tx+80 && y>ty && y<ty+140){
+if(x>tRect.left-rect.left && x<tRect.right-rect.left &&
+y>tRect.top-rect.top && y<tRect.bottom-rect.top){
 
 hit=true
-tile.dataset.hit="true"
 
-score++
+let j=judge(tile)
+judgeText.innerText=j
+
+if(j==="PERFECT") score+=3
+else if(j==="GOOD") score+=1
+
 scoreText.innerText="Score: "+score
+
+effect(tRect.left-rect.left,tRect.top-rect.top)
 
 tile.remove()
 
@@ -175,12 +202,40 @@ tile.remove()
 
 tiles=tiles.filter(t=>document.body.contains(t))
 
-if(!hit) gameOver()
+if(!hit){
+judgeText.innerText="MISS"
+}
 
 }
 
-/* 開始 */
+/* ⬇️ 落下 */
+function update(){
+
+if(!running)return
+
+tiles.forEach(tile=>{
+
+let top=parseFloat(tile.style.top)
+top+=speed
+tile.style.top=top+"px"
+
+if(top>520){
+gameOver()
+}
+
+})
+
+requestAnimationFrame(update)
+
+}
+
+/* ▶️ 開始 */
 function startGame(){
+
+if(!audio.src){
+alert("音楽を選んでください！")
+return
+}
 
 tiles.forEach(t=>t.remove())
 tiles=[]
@@ -189,21 +244,28 @@ score=0
 scoreText.innerText="Score: 0"
 
 running=true
-beatIndex=0
+window.lastBeat=0
 
-music.currentTime=0
-music.play()
+audio.currentTime=0
+audio.play()
 
-sync()
+autoBeat()
 update()
 
 }
 
-/* 終了 */
+/* ⛔ 終了 */
 function gameOver(){
 
 running=false
-music.pause()
+audio.pause()
+
+if(score>highscore){
+highscore=score
+localStorage.setItem("hs",highscore)
+}
+
+highscoreText.innerText="HighScore: "+highscore
 
 alert("Game Over\nScore: "+score)
 
