@@ -8,7 +8,6 @@
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600&display=swap" rel="stylesheet">
 
 <style>
-
 body{
 margin:0;
 font-family:'Fredoka', sans-serif;
@@ -43,6 +42,7 @@ border-radius:20px;
 overflow:hidden;
 position:relative;
 box-shadow:0 0 20px rgba(0,0,0,0.4);
+touch-action:none;
 }
 
 .tile{
@@ -63,7 +63,6 @@ background:linear-gradient(45deg,#ff6ec4,#7873f5);
 color:white;
 box-shadow:0 4px 10px rgba(0,0,0,0.3);
 }
-
 </style>
 </head>
 
@@ -92,7 +91,7 @@ let speed=3
 let highscore=localStorage.getItem("pianoHighScore")||0
 highscoreText.innerText="HighScore: "+highscore
 
-/* 音楽生成（リズム同期） */
+/* 音楽同期 */
 const audioCtx=new(window.AudioContext||window.webkitAudioContext)()
 
 const melody=[262,330,392,523,392,330,262]
@@ -107,7 +106,7 @@ createTile()
 
 beatIndex++
 
-setTimeout(playMusic,400) // ←ここがリズム
+setTimeout(playMusic,400)
 
 }
 
@@ -150,6 +149,8 @@ tiles.push(tile)
 
 }
 
+/* 動き */
+
 function update(){
 
 if(!running)return
@@ -172,12 +173,20 @@ requestAnimationFrame(update)
 
 }
 
-/* タッチ */
+/* タッチバグ完全修正 */
 
-game.addEventListener("click",handle)
-game.addEventListener("touchstart",handle)
+let lastTouchTime=0
+
+game.addEventListener("touchstart",handle,{passive:false})
+game.addEventListener("mousedown",handle)
 
 function handle(e){
+
+let now=Date.now()
+if(now-lastTouchTime<200)return
+lastTouchTime=now
+
+e.preventDefault()
 
 if(!running)return
 
@@ -203,7 +212,10 @@ tile.dataset.hit="true"
 score++
 scoreText.innerText="Score: "+score
 
-tile.remove()
+// エフェクト
+tile.style.background="yellow"
+
+setTimeout(()=>tile.remove(),100)
 
 }
 
